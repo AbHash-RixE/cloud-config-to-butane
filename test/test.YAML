@@ -1,0 +1,21 @@
+#cloud-config
+
+users:
+  - name: flatcar-admin
+    ssh-authorized-keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
+    groups: "sudo, docker"
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+
+write_files:
+  - path: /etc/kubernetes/kubelet.conf
+    permissions: "0644"
+    owner: "root:root"
+    content: |
+      server: https://127.0.0.1:6443
+      token: abcdef.0123456789abcdef
+
+runcmd:
+  - "echo 'Bootstrapping ClusterAPI Node...' > /var/log/bootstrap.log"
+  - "systemctl enable kubelet.service"
+  - "systemctl start kubelet.service"
