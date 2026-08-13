@@ -14,6 +14,9 @@ import (
 
 func main() {
 	inputFile := flag.String("i", "", "Path to the input cloud-config.yaml file")
+
+	outputFile := flag.String("o", "", "path to output YAML config")
+
 	flag.Parse()
 
 	if *inputFile == "" {
@@ -46,5 +49,18 @@ func main() {
 		log.Fatalf("Error generating Butane YAML: %v", err)
 	}
 
-	fmt.Println(string(outData))
+	if *outputFile != "" {
+		err := os.WriteFile(*outputFile, outData, 0644)
+
+		if err != nil {
+			log.Fatalf("failed to write YAML: %v", err)
+		}
+
+		fmt.Printf("Success: Wrote Butane configuration to %s\n", *outputFile)
+
+	} else {
+		if _, err := os.Stdout.Write(outData); err != nil {
+			log.Fatalf("Failed to wite stdout: %v", err)
+		}
+	}
 }
