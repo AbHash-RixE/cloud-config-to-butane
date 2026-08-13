@@ -1,10 +1,10 @@
 package cloudinit
 
 type Config struct {
-	Groups     []string `yaml:"groups,omitempty"`
-	Users      []User   `yaml:"users,omitempty"`
-	WriteFiles []File   `yaml:"write_files,omitempty"`
-	RunCmd     []string `yaml:"runcmd,omitempty"`
+	Groups     []string     `yaml:"groups,omitempty"`
+	Users      []User       `yaml:"users,omitempty"`
+	WriteFiles []File       `yaml:"write_files,omitempty"`
+	RunCmd     []RuncmdItem `yaml:"runcmd,omitempty"`
 }
 
 type User struct {
@@ -22,3 +22,6 @@ type File struct {
 	Encoding    string `yaml:"encoding,omitempty"`
 	Append      bool   `yaml:"append,omitempty"`
 }
+
+// custom type for runcmd: string AND list type
+type RuncmdItem string

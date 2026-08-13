@@ -23,7 +23,12 @@ func (r *RunCmdTranslator) Translate(in *cloudinit.Config, out *butane.Config) e
 		return nil
 	}
 
-	script := strings.Join(in.RunCmd, "\n")
+	var commands []string
+	for _, cmd := range in.RunCmd {
+		commands = append(commands, string(cmd)) // Cast to string
+	}
+
+	script := strings.Join(commands, "\n")
 
 	//Systemd unit string.
 	unitContents := fmt.Sprintf(`[Unit]
