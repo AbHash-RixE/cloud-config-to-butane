@@ -23,14 +23,15 @@ func (r *RunCmdTranslator) Translate(in *cloudinit.Config, out *butane.Config) e
 		return nil
 	}
 
-	var commands []string
+	var execStarts []string
 	for _, cmd := range in.RunCmd {
-		commands = append(commands, string(cmd)) // Cast to string
+		// build full ExecStart line
+		execStarts = append(execStarts, fmt.Sprintf("ExecStart=/bin/sh -c %q", string(cmd)))
 	}
 
-	script := strings.Join(commands, "\n")
+	script := strings.Join(execStarts, "\n")
 
-	//Systemd unit string.
+	// Systemd unit string.
 	unitContents := fmt.Sprintf(`[Unit]
 Description=Execute cloud-init runcmd
 Wants=network-online.target
@@ -39,7 +40,7 @@ ConditionPathExists=!/var/lib/c2b-runcmd.success
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c %q
+%s
 ExecStartPost=/bin/touch /var/lib/c2b-runcmd.success
 
 [Install]
