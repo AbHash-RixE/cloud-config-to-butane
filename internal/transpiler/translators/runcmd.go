@@ -1,7 +1,6 @@
 package translators
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/AbHash-RixE/cloudinit-to-butane/internal/butane"
@@ -23,16 +22,28 @@ func (r *RunCmdTranslator) Translate(in *cloudinit.Config, out *butane.Config) e
 		return nil
 	}
 
-	var execStarts []string
+	var scriptLines []string
+	scriptLines = append(scriptLines, "#!/bin/sh")
+	// Fail immediately if any command fails.
+	scriptLines = append(scriptLines, "set -e")
 	for _, cmd := range in.RunCmd {
-		// build full ExecStart line
-		execStarts = append(execStarts, fmt.Sprintf("ExecStart=/bin/sh -c %q", string(cmd)))
+		scriptLines = append(scriptLines, string(cmd))
 	}
 
-	script := strings.Join(execStarts, "\n")
+	script := strings.Join(scriptLines, "\n")
+
+	//write script to disk
+	mode := 448 // 0700(decimal): owner can read, write, and execute
+	out.Storage.Files = append(out.Storage.Files, butane.File{
+		Path: "/opt/c2b/runcmd.sh",
+		Mode: &mode,
+		Contents: butane.Content{
+			Inline: script,
+		},
+	})
 
 	// Systemd unit string.
-	unitContents := fmt.Sprintf(`[Unit]
+	unitContents := `[Unit]
 Description=Execute cloud-init runcmd
 Wants=network-online.target
 After=network-online.target
@@ -40,16 +51,16 @@ ConditionPathExists=!/var/lib/c2b-runcmd.success
 
 [Service]
 Type=oneshot
-%s
+ExecStart=/opt/c2b/runcmd.sh
 ExecStartPost=/bin/touch /var/lib/c2b-runcmd.success
 
 [Install]
-WantedBy=multi-user.target`, script)
+WantedBy=multi-user.target`
 
 	enabled := true
 
 	out.Systemd.Units = append(out.Systemd.Units, butane.Unit{
-		Name:     "kubeadm-runcmd.service",
+		Name:     "c2b-runcmd.service",
 		Enabled:  &enabled,
 		Contents: unitContents,
 	})
