@@ -1,0 +1,61 @@
+## template: jinja
+#cloud-config
+
+users:
+  - name: core
+    groups: sudo
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl AAAA...
+
+write_files:
+  - path: /etc/kubernetes/kubelet.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      apiVersion: v1
+      kind: Config
+      clusters:
+      - cluster:
+          server: https://10.0.0.1:6443
+          certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
+        name: my-cluster
+      contexts:
+      - context:
+          cluster: my-cluster
+          user: kubelet
+        name: kubelet@my-cluster
+      current-context: kubelet@my-cluster
+      users:
+      - name: kubelet
+        user:
+          token: abcdef.0123456789abcdef
+
+  - path: /etc/kubernetes/pki/ca.crt
+    owner: root:root
+    permissions: "0644"
+    content: |
+      -----BEGIN CERTIFICATE-----
+      MIICqDCCAZ6gAwIBAgIBANANCzANBgkqhkiG9w0BAQsFADARMQ8wDQYDVQQDDAJr
+      -----END CERTIFICATE-----
+
+  - path: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Service]
+      Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf"
+      ExecStart=
+      ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS
+
+bootcmd:
+  - "echo 'nameserver 10.0.0.1' > /etc/resolv.conf"
+
+ntp:
+  servers:
+    - 0.pool.ntp.org
+    - 1.pool.ntp.org
+
+runcmd:
+  - "sudo kubeadm join --config /run/kubeadm/kubeadm-join-config.yaml --v=5"
+  - "echo success > /run/cluster-api/bootstrap-success.complete"

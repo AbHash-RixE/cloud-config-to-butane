@@ -1,6 +1,7 @@
 package translators
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/AbHash-RixE/cloudinit-to-butane/internal/butane"
@@ -18,30 +19,36 @@ func (u *UserTranslator) Name() string {
 }
 
 func (u *UserTranslator) Translate(in *cloudinit.Config, out *butane.Config) error {
-	//Translate top-level groups
 	for _, g := range in.Groups {
 		out.Passwd.Groups = append(out.Passwd.Groups, butane.Group{
 			Name: g,
 		})
 	}
 
-	//Translate users
 	for _, cu := range in.Users {
 		bu := butane.User{
 			Name:              cu.Name,
 			SSHAuthorizedKeys: cu.SSHAuthorizedKeys,
 		}
 
-		// Cloud-init groups -> comma separated string, but
-		// Butane group -> []string array
 		if cu.Groups != "" {
-			rawGroups := strings.Split(cu.Groups, ",")
-			for _, rg := range rawGroups {
+			for _, rg := range strings.Split(cu.Groups, ",") {
 				cleaned := strings.TrimSpace(rg)
 				if cleaned != "" {
 					bu.Groups = append(bu.Groups, cleaned)
 				}
 			}
+		}
+
+		if cu.UID != "" {
+			uid, err := strconv.Atoi(cu.UID)
+			if err == nil {
+				bu.UID = &uid
+			}
+		}
+
+		if cu.HashedPasswd != "" {
+			bu.PasswordHash = cu.HashedPasswd
 		}
 
 		out.Passwd.Users = append(out.Passwd.Users, bu)

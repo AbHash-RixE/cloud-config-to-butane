@@ -15,12 +15,17 @@ type Passwd struct {
 
 type Group struct {
 	Name string `yaml:"name"`
+	GID  *int   `yaml:"gid,omitempty"`
 }
 
 type User struct {
 	Name              string   `yaml:"name"`
 	SSHAuthorizedKeys []string `yaml:"ssh_authorized_keys,omitempty"`
 	Groups            []string `yaml:"groups,omitempty"`
+	PasswordHash      string   `yaml:"password_hash,omitempty"`
+	UID               *int     `yaml:"uid,omitempty"`
+	HomeDir           string   `yaml:"home_dir,omitempty"`
+	Shell             string   `yaml:"shell,omitempty"`
 }
 
 type Storage struct {
@@ -28,15 +33,23 @@ type Storage struct {
 }
 
 type File struct {
-	Path     string    `yaml:"path"`
-	Mode     *int      `yaml:"mode,omitempty"`
-	User     *NodeUser `yaml:"user,omitempty"`
-	Contents Content   `yaml:"contents"`
-	Append   []Append  `yaml:"append,omitempty"`
+	Path      string     `yaml:"path"`
+	Mode      *int       `yaml:"mode,omitempty"`
+	User      *NodeUser  `yaml:"user,omitempty"`
+	Group     *NodeGroup `yaml:"group,omitempty"`
+	Contents  Content    `yaml:"contents"`
+	Append    []Append   `yaml:"append,omitempty"`
+	Overwrite *bool      `yaml:"overwrite,omitempty"`
 }
 
 type NodeUser struct {
 	Name string `yaml:"name"`
+	ID   *int   `yaml:"id,omitempty"`
+}
+
+type NodeGroup struct {
+	Name string `yaml:"name"`
+	ID   *int   `yaml:"id,omitempty"`
 }
 
 type Content struct {
@@ -54,12 +67,11 @@ type Systemd struct {
 type Unit struct {
 	Name     string `yaml:"name"`
 	Enabled  *bool  `yaml:"enabled,omitempty"`
+	Mask     *bool  `yaml:"mask,omitempty"`
 	Contents string `yaml:"contents,omitempty"`
 }
 
-// initializes a Butane config
 func NewDefaultConfig() *Config {
-	//default data
 	return &Config{
 		Variant: "flatcar",
 		Version: "1.1.0",
