@@ -29,8 +29,10 @@ Currently supported user information includes:
 - username
 - SSH authorized keys
 - group membership
+- `hashed_passwd` (mapped to Butane `password_hash`)
+- `uid` (mapped to Butane `uid`)
 
-Other Cloud-Init user options are currently parsed but may not be translated.
+Other Cloud-Init user options are currently parsed but may not be translated, including `sudo` and `lock_passwd`.
 
 ### `write_files`
 
@@ -57,7 +59,7 @@ For an owner such as:
 root:root
 ```
 
-the current implementation maps the username but does not yet map the group.
+the current implementation maps both the username (`user.name`) and the group (`group.name`).
 
 ### `runcmd`
 
@@ -70,6 +72,18 @@ runcmd:
 ```
 
 List-form entries are shell-quoted so that arguments with spaces or special characters are preserved. All commands are collected into a single script file (run with `set -e`, so a failure stops execution) and executed once during first boot by a oneshot systemd unit, made idempotent with a marker file.
+
+### `bootcmd`
+
+Maps Cloud-Init `bootcmd` entries to a script file and a systemd unit. Commands are placed in an early-boot unit with `DefaultDependencies=no` and `After=local-fs.target` so they run before networking, matching cloud-init semantics.
+
+### `ntp`
+
+Maps Cloud-Init `ntp.servers` and `ntp.pools` to the `[Time]` section of `systemd-timesyncd.service`. Servers are mapped to `NTP=` lines and pools to `Pool=` lines.
+
+### `ca_certs`
+
+Maps Cloud-Init `ca_certs.trusted` entries to individual PEM files under `/etc/ssl/certs/`. Each certificate is written as a separate file with mode `0644`.
 
 ## Example
 
@@ -117,6 +131,8 @@ storage:
         - path: /etc/kubernetes/kubelet.conf
           mode: 420
           user:
+            name: root
+          group:
             name: root
           contents:
             inline: |
@@ -167,7 +183,16 @@ Build the CLI with:
 go build -o c2b ./cmd/c2b
 ```
 
-The `Makefile` is currently only a stub, so `go build` should be used for now.
+Or use the Makefile:
+
+```sh
+make build   # build binary to bin/c2b
+make test    # run all unit tests
+make lint    # run golangci-lint
+make fmt     # format code
+make vet     # run go vet
+make all     # fmt + vet + lint + test + build
+```
 
 ## Usage
 
@@ -200,26 +225,43 @@ Validate the generated configuration with Butane:
 
 ```text
 cmd/c2b/
-└── main.go                    CLI entry point
+└── main.go                       CLI entry point
 
 internal/cloudinit/
-├── parser.go                  YAML parsing and custom type handling
-└── types.go                   Cloud-Init data types
+├── parser.go                     YAML parsing and header stripping
+├── parser_test.go                Parser unit tests
+└── types.go                      Cloud-Init data types
 
 internal/transpiler/
-├── engine.go                  Runs the registered translators
-├── interface.go               Translator interface
+├── engine.go                     Runs the registered translators
+├── engine_test.go                Engine unit tests
+├── interface.go                  Translator interface
 └── translators/
-    ├── users.go               Users/groups to passwd
-    ├── files.go               write_files to storage.files
-    └── runcmd.go              runcmd to systemd unit
+    ├── users.go                  Users/groups to passwd
+    ├── users_test.go
+    ├── files.go                  write_files to storage.files
+    ├── files_test.go
+    ├── runcmd.go                 runcmd to systemd unit + script
+    ├── runcmd_test.go
+    ├── bootcmd.go                bootcmd to early-boot systemd unit
+    ├── bootcmd_test.go
+    ├── ntp.go                    ntp to systemd-timesyncd config
+    ├── ntp_test.go
+    ├── ca_certs.go               ca_certs to PEM files
+    └── ca_certs_test.go
 
 internal/butane/
-├── types.go                   Butane output types
-└── generator.go               Butane YAML generation
+├── types.go                      Butane output types
+├── generator.go                  Butane YAML generation
+└── generator_test.go
 
 test/
-└── test.YAML                  Sample Cloud-Init configuration
+├── test.YAML                     Sample Cloud-Init configuration
+├── test1 (runcmd: list VS string).YAML
+└── fixtures/
+    └── cabpk-worker.yaml         CABPK worker fixture
+
+Makefile                           Build, test, lint, fmt, vet, clean
 ```
 
 ## How It Works
@@ -237,7 +279,10 @@ Transpiler
       │
       ├── users/groups
       ├── write_files
-      └── runcmd
+      ├── runcmd
+      ├── bootcmd
+      ├── ntp
+      └── ca_certs
       │
       ▼
 Butane configuration
@@ -261,12 +306,9 @@ This repository is still an early prototype. Some parts of the translation are i
 
 ### Users
 
-Some Cloud-Init user fields are currently parsed but not translated, including:
+Some Cloud-Init user fields are currently parsed but not translated:
 
 - `sudo`
-- `hashed_passwd`
 - `lock_passwd`
-- `uid`
-- `gid`
 
 
